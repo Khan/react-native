@@ -46,7 +46,10 @@ import javax.annotation.Nullable;
 
   public final void updateView(UIImplementation uiImplementation) {
     if (mConnectedViewTag == -1) {
-      throw new IllegalStateException("Node has not been attached to a view");
+      // NOTE(hannah): On master, the following "throw" was replaced by a
+      // return statement. We'll do the same here since we're seeing crashes.
+      //throw new IllegalStateException("Node has not been attached to a view");
+      return;
     }
     JavaOnlyMap propsMap = new JavaOnlyMap();
     for (Map.Entry<String, Integer> entry : mPropMapping.entrySet()) {
