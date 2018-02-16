@@ -54,6 +54,7 @@ import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.events.ContentSizeChangeEvent;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.EventDispatcher;
+import com.facebook.react.views.webview.events.OnScrollChangedEvent;
 import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
 import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
 import com.facebook.react.views.webview.events.TopLoadingStartEvent;
@@ -107,6 +108,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
 
   protected WebViewConfig mWebViewConfig;
   protected @Nullable WebView.PictureListener mPictureListener;
+  protected @Nullable OnScrollChangedListener mOnScrollChangedListener;
 
   protected static class ReactWebViewClient extends WebViewClient {
 
@@ -223,6 +225,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
     protected @Nullable String injectedJS;
     protected boolean messagingEnabled = false;
     protected @Nullable ReactWebViewClient mReactWebViewClient;
+    protected @Nullable OnScrollChangedListener mOnScrollChangedListener;
 
     protected class ReactWebViewBridge {
       ReactWebView mContext;
@@ -329,6 +332,20 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
 
     public void onMessage(String message) {
       dispatchEvent(this, new TopMessageEvent(this.getId(), message));
+    }
+
+    public void setOnScrollChangedListener(
+        @Nullable OnScrollChangedListener onScrollChangedListener) {
+      mOnScrollChangedListener = onScrollChangedListener;
+    }
+
+    @Override
+    protected void onScrollChanged(int l, int t, int oldl, int oldt) {
+        super.onScrollChanged(l, t, oldl, oldt);
+
+        if (mOnScrollChangedListener != null) {
+            mOnScrollChangedListener.onScrollChanged(this, l, t, oldl, oldt);
+        }
     }
 
     protected void cleanupCallbacksAndDestroy() {
@@ -540,6 +557,15 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
     }
   }
 
+  @ReactProp(name = "onScrollChanged")
+  public void setOnScrollChanged(WebView view, boolean sendOnScrollChangedEvents) {
+    if (sendOnScrollChangedEvents) {
+      ((ReactWebView) view).setOnScrollChangedListener(getOnScrollChangedListener());
+    } else {
+      ((ReactWebView) view).setOnScrollChangedListener(null);
+    }
+  }
+
   @Override
   protected void addEventEmitters(ThemedReactContext reactContext, WebView view) {
     // Do not register default touch emitter and let WebView implementation handle touches
@@ -622,10 +648,25 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
     return mPictureListener;
   }
 
+  protected OnScrollChangedListener getOnScrollChangedListener() {
+    if (mOnScrollChangedListener == null) {
+      mOnScrollChangedListener = new OnScrollChangedListener() {
+        public void onScrollChanged(WebView webView, int l, int t, int oldl, int oldt) {
+          dispatchEvent(webView, new OnScrollChangedEvent(webView.getId(), l, t, oldl, oldt));
+        }
+      };
+    }
+    return mOnScrollChangedListener;
+  }
+
   protected static void dispatchEvent(WebView webView, Event event) {
     ReactContext reactContext = (ReactContext) webView.getContext();
     EventDispatcher eventDispatcher =
       reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
     eventDispatcher.dispatchEvent(event);
+  }
+
+  interface OnScrollChangedListener {
+    void onScrollChanged(WebView webView, int l, int t, int oldl, int oldt);
   }
 }
